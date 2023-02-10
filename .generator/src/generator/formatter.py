@@ -90,9 +90,7 @@ def escape_reserved_keyword(word):
     :param word: Word to escape
     :return: The escaped word if it was a reserved keyword, the word unchanged otherwise
     """
-    if word in KEYWORDS:
-        return f"{word}Var"
-    return word
+    return f"{word}Var" if word in KEYWORDS else word
 
 
 def attribute_name(attribute):
@@ -133,27 +131,27 @@ def simple_type(schema, render_nullable=False, render_new=False):
 
     if type_name == "integer":
         return {
-            "int32": "int32" if not nullable else f"{nullable_prefix}Int32",
-            "int64": "int64" if not nullable else f"{nullable_prefix}Int64",
-            None: "int32" if not nullable else f"{nullable_prefix}Int32",
+            "int32": f"{nullable_prefix}Int32" if nullable else "int32",
+            "int64": f"{nullable_prefix}Int64" if nullable else "int64",
+            None: f"{nullable_prefix}Int32" if nullable else "int32",
         }[type_format]
 
     if type_name == "number":
         return {
-            "double": "float64" if not nullable else f"{nullable_prefix}Float64",
-            None: "float" if not nullable else f"{nullable_prefix}Float",
+            "double": f"{nullable_prefix}Float64" if nullable else "float64",
+            None: f"{nullable_prefix}Float" if nullable else "float",
         }[type_format]
 
     if type_name == "string":
         return {
-            "date": "time.Time" if not nullable else f"{nullable_prefix}Time",
-            "date-time": "time.Time" if not nullable else f"{nullable_prefix}Time",
-            "email": "string" if not nullable else f"{nullable_prefix}String",
+            "date": f"{nullable_prefix}Time" if nullable else "time.Time",
+            "date-time": f"{nullable_prefix}Time" if nullable else "time.Time",
+            "email": f"{nullable_prefix}String" if nullable else "string",
             "binary": "*os.File",
-            None: "string" if not nullable else f"{nullable_prefix}String",
+            None: f"{nullable_prefix}String" if nullable else "string",
         }[type_format]
     if type_name == "boolean":
-        return "bool" if not nullable else f"{nullable_prefix}Bool"
+        return f"{nullable_prefix}Bool" if nullable else "bool"
 
     return None
 
@@ -166,24 +164,24 @@ def is_reference(schema, attribute):
 
     attribute_schema = schema.get("properties", {}).get(attribute, {})
 
-    is_nullable = attribute_schema.get("nullable", False)
-    if is_nullable:
+    if is_nullable := attribute_schema.get("nullable", False):
         return False
 
-    is_anytype = attribute_schema.get("type", "object") == "object" and not (
-        "properties" in attribute_schema
-        or "oneOf" in attribute_schema
-        or "anyOf" in attribute_schema
-        or "allOf" in attribute_schema
+    is_anytype = (
+        attribute_schema.get("type", "object") == "object"
+        and "properties" not in attribute_schema
+        and "oneOf" not in attribute_schema
+        and "anyOf" not in attribute_schema
+        and "allOf" not in attribute_schema
     )
     if is_anytype:
         return False
 
     # no reference to arrays
-    if attribute_schema.get("type", "object") == "array" or "items" in attribute_schema:
-        return False
-
-    return True
+    return (
+        attribute_schema.get("type", "object") != "array"
+        and "items" not in attribute_schema
+    )
 
 
 def attribute_path(attribute):
@@ -215,11 +213,7 @@ def reference_to_value(schema, value, print_nullable=True):
     nullable = schema.get("nullable", False)
 
     prefix = ""
-    if type_name in PRIMITIVE_TYPES:
-        prefix = "common."
-    else:
-        prefix = "datadog."
-
+    prefix = "common." if type_name in PRIMITIVE_TYPES else "datadog."
     if nullable and print_nullable:
         if value == "nil":
             formatter = "*{prefix}NewNullable{function_name}({value})"
@@ -531,7 +525,7 @@ def format_data_with_schema_list(
         list_schema = list_schema["items"]
         depth += 1
 
-    nested_prefix = list_schema.get("nullable", False) and "*" or ""
+    nested_prefix = "*" if list_schema.get("nullable", False) else ""
     nested_schema_name = schema_name(list_schema)
     if "oneOf" in list_schema:
         if schema_name(list_schema):
@@ -642,14 +636,13 @@ def format_data_with_schema_dict(
             if not nested_schema_name:
                 nested_schema_name = value.split("{")[0]
 
-        if has_properties:
-            if parameters:
-                parameters = f"{saved_parameters}AdditionalProperties: map[string]{nested_schema_name}{{\n{parameters}}},\n"
-            else:
-                parameters = saved_parameters
-        else:
+        if not has_properties:
             return f"map[string]{nested_schema_name}{{\n{parameters}}}"
 
+        if parameters:
+            parameters = f"{saved_parameters}AdditionalProperties: map[string]{nested_schema_name}{{\n{parameters}}},\n"
+        else:
+            parameters = saved_parameters
     if "oneOf" in schema:
         matched = 0
         one_of_schema = None

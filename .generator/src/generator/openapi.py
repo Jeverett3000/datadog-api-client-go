@@ -20,11 +20,11 @@ def load(filename):
 
 
 def get_name(schema):
-    name = None
-    if hasattr(schema, "__reference__"):
-        name = schema.__reference__["$ref"].split("/")[-1]
-
-    return name
+    return (
+        schema.__reference__["$ref"].split("/")[-1]
+        if hasattr(schema, "__reference__")
+        else None
+    )
 
 
 def type_to_go(schema, alternative_name=None, render_nullable=False, render_new=False):
@@ -47,7 +47,9 @@ def type_to_go(schema, alternative_name=None, render_nullable=False, render_new=
     if name:
         if "enum" in schema:
             return prefix + name
-        if not (schema.get("additionalProperties") and not schema.get("properties")) and schema.get("type", "object") == "object":
+        if (
+            not schema.get("additionalProperties") or schema.get("properties")
+        ) and schema.get("type", "object") == "object":
             return prefix + name
 
     type_ = schema.get("type")
@@ -68,11 +70,11 @@ def type_to_go(schema, alternative_name=None, render_nullable=False, render_new=
         name = type_to_go(schema["items"], alternative_name=alternative_name)
         # handle nullable arrays
         if formatter.simple_type(schema["items"]) and schema["items"].get("nullable"):
-            name = "*" + name
-        return "[]{}".format(name)
+            name = f"*{name}"
+        return f"[]{name}"
     elif type_ == "object":
         if "additionalProperties" in schema:
-            return "map[string]{}".format(type_to_go(schema["additionalProperties"]))
+            return f'map[string]{type_to_go(schema["additionalProperties"])}'
         return (
             prefix + alternative_name
             if alternative_name
@@ -140,14 +142,16 @@ def child_models(schema, alternative_name=None, seen=None, parent=None):
 
         yield from child_models(
             schema["items"],
-            alternative_name=name + "Item" if name is not None else None,
+            alternative_name=f"{name}Item" if name is not None else None,
             seen=seen,
             parent=schema,
         )
 
-    if (schema.get("type") == "object" or "properties" in schema or has_sub_models) and (
-        not (schema.get("additionalProperties") and not schema.get("properties"))
-    ):
+    if (
+        schema.get("type") == "object"
+        or "properties" in schema
+        or has_sub_models
+    ) and (not schema.get("additionalProperties") or schema.get("properties")):
         if not has_sub_models and name is None:
             # this is a basic map object so we don't need a type
             return
@@ -181,8 +185,7 @@ def child_models(schema, alternative_name=None, seen=None, parent=None):
         yield name, schema
 
     if "additionalProperties" in schema:
-        nested_name = get_name(schema["additionalProperties"])
-        if nested_name:
+        if nested_name := get_name(schema["additionalProperties"]):
             yield from child_models(
                 schema["additionalProperties"],
                 seen=seen,
@@ -199,7 +202,7 @@ def models(spec):
 
             for content in operation.get("parameters", []):
                 if "schema" in content:
-                    name_to_schema.update(dict(child_models(content["schema"])))
+                    name_to_schema |= dict(child_models(content["schema"]))
 
             for content in operation.get("requestBody", {}).get("content", {}).values():
                 if "schema" in content:
@@ -293,32 +296,31 @@ def accept_headers(operation):
     any_type = "*/*"
     seen = []
     for response in operation.get("responses", {}).values():
-        if "content" in response:
-            for media_type in response["content"].keys():
-                if media_type not in seen:
-                    seen.append(media_type)
-        else:
+        if "content" not in response:
             return [any_type]
+        for media_type in response["content"].keys():
+            if media_type not in seen:
+                seen.append(media_type)
     return seen
 
 
 def collection_format(parameter):
-    in_to_style = {
-        "query": "form",
-        "path": "simple",
-        "header": "simple",
-        "cookie": "form",
-    }
     schema = parameter_schema(parameter)
-    matrix = {
-        ("form", False): "csv",
-        ("form", True): "multi",
-        # TODO add more cases from https://swagger.io/specification/#parameter-style
-    }
     if schema.get("type") == "array" or "items" in schema:
         in_ = parameter.get("in", "query")
+        in_to_style = {
+            "query": "form",
+            "path": "simple",
+            "header": "simple",
+            "cookie": "form",
+        }
         style = parameter.get("style", in_to_style[in_])
-        explode = parameter.get("explode", True if style == "form" else False)
+        explode = parameter.get("explode", style == "form")
+        matrix = {
+            ("form", False): "csv",
+            ("form", True): "multi",
+            # TODO add more cases from https://swagger.io/specification/#parameter-style
+        }
         return matrix.get((style, explode), "multi")
     return ""
 
@@ -367,10 +369,16 @@ def request_content_type(operation, status_code=None):
 
 
 def response(operation, status_code=None):
-    for response in operation["responses"]:
-        if status_code is None or response == str(status_code):
-            return list(operation["responses"][response]["content"].values())[0]["schema"]
-    return None
+    return next(
+        (
+            list(operation["responses"][response]["content"].values())[0][
+                "schema"
+            ]
+            for response in operation["responses"]
+            if status_code is None or response == str(status_code)
+        ),
+        None,
+    )
 
 
 def get_default(operation, attribute_path):
@@ -393,7 +401,7 @@ def get_container(operation, attribute_path, container_name="o[0]"):
     attribute_name = attribute_path.split(".")[0]
     for name, parameter in parameters(operation):
         if name == attribute_name and parameter["required"]:
-            return '{}.{}'.format(name, ".".join(formatter.attribute_name(a) for a in attribute_path.split(".")[1:]))
+            return f'{name}.{".".join(formatter.attribute_name(a) for a in attribute_path.split(".")[1:])}'
     return f'{container_name}.{formatter.attribute_path(attribute_path)}'
 
 

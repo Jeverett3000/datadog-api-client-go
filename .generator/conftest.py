@@ -125,9 +125,8 @@ def pytest_bdd_apply_tag(tag, function):
 
 
 def _get_prefix(request):
-    test_class = request.cls
-    if test_class:
-        main = "{}.{}".format(test_class.__name__, request.node.name)
+    if test_class := request.cls:
+        main = f"{test_class.__name__}.{request.node.name}"
     else:
         base_name = request.node.__scenario_report__.scenario.name
         main = PATTERN_ALPHANUM.sub("_", base_name)[:100]
@@ -170,10 +169,10 @@ def relative_time(imports, calls, freezed_time, iso):
         ret = freezed_time
         m = time_re.match(arg)
         if m:
-            if m.group(1):
-                sign = m.group(2)
-                num = int(sign + m.group(3))
-                unit = m.group(4)
+            if m[1]:
+                sign = m[2]
+                num = int(sign + m[3])
+                unit = m[4]
                 if unit == "s":
                     ret += relativedelta(seconds=num)
                 elif unit == "m":
@@ -231,7 +230,7 @@ def context(request, unique, freezed_time):
     imports = defaultdict(set)
     given = defaultdict(dict)
 
-    ctx = {
+    yield {
         "undo_operations": [],
         "unique": unique,
         "unique_lower": unique.lower(),
@@ -239,7 +238,9 @@ def context(request, unique, freezed_time):
         "unique_alnum": PATTERN_ALPHANUM.sub("", unique),
         "unique_lower_alnum": PATTERN_ALPHANUM.sub("", unique).lower(),
         "unique_upper_alnum": PATTERN_ALPHANUM.sub("", unique).upper(),
-        "timestamp": relative_time(imports, replace_values, freezed_time, False),
+        "timestamp": relative_time(
+            imports, replace_values, freezed_time, False
+        ),
         "timeISO": relative_time(imports, replace_values, freezed_time, True),
         "_asserts": [],
         "_replace_values": replace_values,
@@ -253,13 +254,14 @@ def context(request, unique, freezed_time):
             "unique": prefix + "_{{ timestamp(0, s) }}",
             "unique_lower": prefix.lower() + "_{{ timestamp(0, s) }}",
             "unique_upper": prefix.upper() + "_{{ timestamp(0, s) }}",
-            "unique_alnum": re.sub(r"[^A-Za-z0-9]+", "", prefix) + "{{ timestamp(0, s) }}",
-            "unique_lower_alnum": re.sub(r"[^A-Za-z0-9]+", "", prefix).lower() + "{{ timestamp(0, s) }}",
-            "unique_upper_alnum": re.sub(r"[^A-Za-z0-9]+", "", prefix).upper() + "{{ timestamp(0, s) }}",
+            "unique_alnum": re.sub(r"[^A-Za-z0-9]+", "", prefix)
+            + "{{ timestamp(0, s) }}",
+            "unique_lower_alnum": re.sub(r"[^A-Za-z0-9]+", "", prefix).lower()
+            + "{{ timestamp(0, s) }}",
+            "unique_upper_alnum": re.sub(r"[^A-Za-z0-9]+", "", prefix).upper()
+            + "{{ timestamp(0, s) }}",
         },
     }
-
-    yield ctx
 
 
 @pytest.fixture

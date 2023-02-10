@@ -96,14 +96,14 @@ def cli(specs, output):
         resources_dir.mkdir(parents=True, exist_ok=True)
 
         for name, model in models.items():
-            filename = "model_" + formatter.model_filename(name) + ".go"
+            filename = f"model_{formatter.model_filename(name)}.go"
             model_path = resources_dir / filename
             model_path.parent.mkdir(parents=True, exist_ok=True)
             with model_path.open("w") as fp:
                 fp.write(model_j2.render(name=name, model=model, models=models))
 
         for name, operations in apis.items():
-            filename = "api_" + formatter.snake_case(name) + ".go"
+            filename = f"api_{formatter.snake_case(name)}.go"
             api_path = resources_dir / filename
             api_path.parent.mkdir(parents=True, exist_ok=True)
             with api_path.open("w") as fp:
