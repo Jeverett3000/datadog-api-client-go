@@ -10,7 +10,7 @@ require (
 	github.com/go-bdd/gobdd v1.1.4-0.20211209204431-ca566a78d075
 	github.com/jonboulle/clockwork v0.1.0
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
+	golang.org/x/net v0.17.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.33.0
 	gopkg.in/h2non/gock.v1 v1.0.15
 	gotest.tools v2.2.0+incompatible
@@ -37,7 +37,7 @@ require (
 	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/tinylib/msgp v1.1.6 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20211020174200-9d6173849985 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.4.0 // indirect
