@@ -9,7 +9,7 @@ require (
 
 require (
 	github.com/golang/protobuf v1.2.0 // indirect
-	golang.org/x/net v0.0.0-20190108225652-1e06a53dbb7e // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	google.golang.org/appengine v1.4.0 // indirect
 )
